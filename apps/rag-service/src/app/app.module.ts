@@ -4,6 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ResumeEmbedding } from './entities/resume-embedding.entity';
+import { EmbeddingService } from './services/embedding.service';
+import { IngestionService } from './services/ingestion.service';
+import { AgentService } from './services/agent.service';
 
 @Module({
   imports: [
@@ -18,10 +22,11 @@ import { AppService } from './app.service';
         username: config.get('POSTGRES_USER'),
         password: config.get('POSTGRES_PASSWORD'),
         database: config.get('RAG_DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        entities: [ResumeEmbedding],
         synchronize: true,
       }),
     }),
+    TypeOrmModule.forFeature([ResumeEmbedding]),
     ClientsModule.register([
       {
         name: 'KAFKA_SERVICE',
@@ -37,6 +42,6 @@ import { AppService } from './app.service';
     ]),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EmbeddingService, IngestionService, AgentService],
 })
 export class AppModule {}

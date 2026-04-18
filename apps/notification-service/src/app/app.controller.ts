@@ -13,7 +13,6 @@ export class AppController {
 
   @EventPattern('match.result')
   async handleMatchResult(@Payload() message: any) {
-    const data = JSON.parse(message.value);
-    await this.appService.sendNotification(data);
+    await this.appService.sendNotification(message);
   }
 }

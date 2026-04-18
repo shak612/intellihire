@@ -1,5 +1,8 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
+import { DataSource } from 'typeorm';
+import { IngestionService } from './services/ingestion.service';
+import { AgentService } from './services/agent.service';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -7,32 +10,40 @@ export class AppService implements OnModuleInit {
 
   constructor(
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
+    private readonly ingestionService: IngestionService,
+    private readonly agentService: AgentService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async onModuleInit() {
     await this.kafkaClient.connect();
+    await this.dataSource.query('CREATE EXTENSION IF NOT EXISTS vector');
+    this.logger.log('pgvector extension enabled');
   }
 
-  getData(): { message: string } {
+  getData() {
     return { message: 'RAG Service is running!' };
   }
 
   async processResume(data: { candidateId: string; resumeText: string }) {
-    this.logger.log(`Processing resume for candidate: ${data.candidateId}`);
+    this.logger.log(`Processing resume for: ${data.candidateId}`);
+    await this.ingestionService.ingestResume(data.candidateId, data.resumeText);
 
-    // Phase 3 will add real embeddings here
-    const mockScore = Math.floor(Math.random() * 40) + 60;
-
-    this.logger.log(`Match score for ${data.candidateId}: ${mockScore}`);
-
-    // Publish result back to Kafka
     this.kafkaClient.emit('match.result', {
       key: data.candidateId,
       value: JSON.stringify({
         candidateId: data.candidateId,
-        score: mockScore,
+        score: 0,
         processedAt: new Date().toISOString(),
       }),
     });
+  }
+
+  async searchCandidates(jobDescription: string) {
+    return this.agentService.findBestCandidates(jobDescription);
+  }
+
+  async askJobQuestion(question: string, jobId: string, resume: string) {
+    return this.agentService.answerCandidateQuestion(question, jobId, resume);
   }
 }

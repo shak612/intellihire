@@ -77,7 +77,7 @@ queries, and generates intelligent shortlists — built on microservices.
 ### Run the Infrastructure
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/intellihire.git
+git clone https://github.com/shak612/intellihire.git
 cd intellihire
 
 # Copy env file

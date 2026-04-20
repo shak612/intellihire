@@ -1,27 +1,12 @@
-import { useState } from 'react';
-import { uploadResume, askJobQuestion } from '../services/api';
-import { ChatMessage } from '../types';
-
-const SAMPLE_JOBS = [
-  {
-    id: 'job-001',
-    title: 'Senior Full-Stack Engineer',
-    location: 'Remote',
-    skills: ['React', 'NestJS', 'Docker', 'Microservices'],
-    description: 'Looking for a senior full-stack developer with React and NestJS experience, familiar with microservices and Docker.',
-  },
-  {
-    id: 'job-002',
-    title: 'Backend Engineer',
-    location: 'Hybrid',
-    skills: ['Node.js', 'PostgreSQL', 'Kafka', 'TypeScript'],
-    description: 'Experienced backend engineer needed with strong PostgreSQL and event-driven architecture skills.',
-  },
-];
+import { useEffect, useState } from 'react';
+import { uploadResume, askJobQuestion, fetchJobs } from '../services/api';
+import { ChatMessage, Job } from '../types';
 
 export default function CandidatePortal() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'resume' | 'chat'>('jobs');
-  const [selectedJob, setSelectedJob] = useState(SAMPLE_JOBS[0]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [loadingJobs, setLoadingJobs] = useState(true);
   const [resume, setResume] = useState('');
   const [candidateId, setCandidateId] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -29,6 +14,15 @@ export default function CandidatePortal() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+
+  useEffect(() => {
+    fetchJobs()
+      .then((data) => {
+        setJobs(data);
+        if (data.length > 0) setSelectedJob(data[0]);
+      })
+      .finally(() => setLoadingJobs(false));
+  }, []);
 
   const handleUpload = async () => {
     if (!resume.trim() || !candidateId.trim()) return;
@@ -44,7 +38,7 @@ export default function CandidatePortal() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || chatLoading) return;
+    if (!input.trim() || chatLoading || !selectedJob) return;
     const question = input.trim();
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: question }]);
@@ -85,12 +79,20 @@ export default function CandidatePortal() {
 
       {activeTab === 'jobs' && (
         <div className="space-y-3">
-          {SAMPLE_JOBS.map((job) => (
+          {loadingJobs && (
+            <p className="text-sm text-gray-400 text-center py-8">Loading jobs...</p>
+          )}
+          {!loadingJobs && jobs.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-8">
+              No jobs posted yet. Ask a recruiter to post one!
+            </p>
+          )}
+          {jobs.map((job) => (
             <div
               key={job.id}
               onClick={() => setSelectedJob(job)}
               className={`bg-white border rounded-xl p-5 cursor-pointer transition-all ${
-                selectedJob.id === job.id
+                selectedJob?.id === job.id
                   ? 'border-indigo-400 ring-1 ring-indigo-200'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -167,10 +169,12 @@ export default function CandidatePortal() {
 
       {activeTab === 'chat' && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="mb-4 p-3 bg-indigo-50 rounded-lg">
-            <p className="text-xs font-medium text-indigo-700">Chatting about:</p>
-            <p className="text-sm font-semibold text-indigo-900">{selectedJob.title}</p>
-          </div>
+          {selectedJob && (
+            <div className="mb-4 p-3 bg-indigo-50 rounded-lg">
+              <p className="text-xs font-medium text-indigo-700">Chatting about:</p>
+              <p className="text-sm font-semibold text-indigo-900">{selectedJob.title}</p>
+            </div>
+          )}
           <div className="space-y-3 mb-4 min-h-32">
             {messages.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-8">
@@ -179,13 +183,9 @@ export default function CandidatePortal() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-xs text-xs px-3 py-2 rounded-xl leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
+                <div className={`max-w-xs text-xs px-3 py-2 rounded-xl leading-relaxed ${
+                  msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
+                }`}>
                   {msg.content}
                 </div>
               </div>

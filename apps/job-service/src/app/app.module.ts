@@ -3,13 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { Job } from './entities/job.entity';
+import { JobController } from './job/job.controller';
+import { JobService } from './job/job.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '../../.env',
-    }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -20,12 +20,13 @@ import { AppService } from './app.service';
         username: config.get('POSTGRES_USER'),
         password: config.get('POSTGRES_PASSWORD'),
         database: config.get('JOB_DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        entities: [Job],
         synchronize: true,
       }),
     }),
+    TypeOrmModule.forFeature([Job]),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, JobController],
+  providers: [AppService, JobService],
 })
 export class AppModule {}

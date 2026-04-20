@@ -11,6 +11,8 @@ export interface Job {
   description: string;
   location: string;
   skills: string[];
+  recruiterId: string;
+  status: 'open' | 'closed';
   createdAt: string;
 }
 

@@ -2,6 +2,8 @@
   "name": "intellihire",
   "version": "0.0.0",
   "private": true,
+	"license": "ISC",
+	"author": "Shakir Mansuri",
   "devDependencies": {
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",

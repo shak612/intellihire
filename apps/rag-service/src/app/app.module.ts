@@ -8,25 +8,26 @@ import { ResumeEmbedding } from './entities/resume-embedding.entity';
 import { EmbeddingService } from './services/embedding.service';
 import { IngestionService } from './services/ingestion.service';
 import { AgentService } from './services/agent.service';
+import { JobEmbedding } from './entities/job-embedding.entity';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: 'localhost',
-        port: config.get<number>('RAG_DB_PORT'),
-        username: config.get('POSTGRES_USER'),
-        password: config.get('POSTGRES_PASSWORD'),
-        database: config.get('RAG_DB_NAME'),
-        entities: [ResumeEmbedding],
-        synchronize: true,
-      }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '../../.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
-    TypeOrmModule.forFeature([ResumeEmbedding]),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.RAG_DB_HOST || 'localhost',
+      port: parseInt(process.env.RAG_DB_PORT || '5435'),
+      username: process.env.POSTGRES_USER || 'intellihire',
+      password: process.env.POSTGRES_PASSWORD || 'intellihire123',
+      database: process.env.RAG_DB_NAME || 'rag_db',
+      entities: [ResumeEmbedding, JobEmbedding],
+      synchronize: true,
+    }),
+    TypeOrmModule.forFeature([ResumeEmbedding, JobEmbedding]),
     ClientsModule.register([
       {
         name: 'KAFKA_SERVICE',
@@ -34,7 +35,7 @@ import { AgentService } from './services/agent.service';
         options: {
           client: {
             clientId: 'rag-service-producer',
-            brokers: ['localhost:9092'],
+            brokers: [(process.env.KAFKA_BROKER || 'localhost:9092')],
           },
           consumer: { groupId: 'rag-producer-group' },
         },

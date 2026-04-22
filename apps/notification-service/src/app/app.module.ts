@@ -9,6 +9,7 @@ import { MailService } from './mail/mail.service';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '../../.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
     }),
   ],
   controllers: [AppController],

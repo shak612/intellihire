@@ -20,3 +20,15 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'recruiter' | 'candidate';
+}
+
+export interface AuthResponse {
+  access_token: string;
+  user: User;
+}

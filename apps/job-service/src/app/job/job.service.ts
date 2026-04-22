@@ -1,8 +1,11 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
+import { ClientKafka } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateJobDto } from '../dto/job.dto';
@@ -10,15 +13,32 @@ import { UpdateJobDto } from '../dto/job.dto';
 import { Job, JobStatus } from '../entities/job.entity';
 
 @Injectable()
-export class JobService {
+export class JobService implements OnModuleInit {
   constructor(
     @InjectRepository(Job)
     private readonly jobRepo: Repository<Job>,
+    @Inject('KAFKA_SERVICE')
+    private readonly kafkaClient: ClientKafka,
   ) {}
+
+  async onModuleInit() {
+    await this.kafkaClient.connect();
+  }
 
   async create(dto: CreateJobDto): Promise<Job> {
     const job = this.jobRepo.create(dto);
-    return this.jobRepo.save(job);
+    const saved = await this.jobRepo.save(job);
+
+    this.kafkaClient.emit('job.created', {
+      key: saved.id,
+      value: JSON.stringify({
+        jobId: saved.id,
+        title: saved.title,
+        description: saved.description,
+      }),
+    });
+
+    return saved;
   }
 
   async findAll(): Promise<Job[]> {

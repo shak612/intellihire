@@ -21,11 +21,34 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
   # ──────────────── DATABASES ────────────────
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: auth_db
+    ports:
+      - "${AUTH_DB_PORT}:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+
   job-db:
     image: postgres:16-alpine
     container_name: job-db
@@ -62,32 +85,109 @@ services:
     volumes:
       - rag_db_data:/var/lib/postgresql/data
 
-  auth-db:
-    image: postgres:16-alpine
-    container_name: auth-db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: auth_db
+  # ──────────────── MICROSERVICES ────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: api-gateway
     ports:
-      - "5436:5432"
-    volumes:
-      - auth_db_data:/var/lib/postgresql/data  
+      - "3000:3000"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKER=kafka:9092
+      - AUTH_DB_HOST=auth-db
+      - AUTH_DB_PORT=5432
+    depends_on:
+      - auth-db
+      - kafka
+    restart: unless-stopped
 
-  # ──────────────── KAFKA UI (optional but helpful) ────────────────
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: kafka-ui
+  job-service:
+    build:
+      context: .
+      dockerfile: apps/job-service/Dockerfile
+    container_name: job-service
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKER=kafka:9092
+      - JOB_DB_HOST=job-db
+      - JOB_DB_PORT=5432      
+    depends_on:
+      - job-db
+      - kafka
+    restart: unless-stopped
+
+  candidate-service:
+    build:
+      context: .
+      dockerfile: apps/candidate-service/Dockerfile
+    container_name: candidate-service
+    ports:
+      - "3002:3002"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKER=kafka:9092
+      - CANDIDATE_DB_HOST=candidate-db
+      - CANDIDATE_DB_PORT=5432
+    depends_on:
+      - candidate-db
+      - kafka
+    restart: unless-stopped
+
+  rag-service:
+    build:
+      context: .
+      dockerfile: apps/rag-service/Dockerfile
+    container_name: rag-service
+    ports:
+      - "3003:3003"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKER=kafka:9092
+      - RAG_DB_HOST=rag-db
+      - RAG_DB_PORT=5432
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    depends_on:
+      - rag-db
+      - kafka
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: apps/notification-service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "3004:3004"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKER=kafka:9092
     depends_on:
       - kafka
+    restart: unless-stopped
+
+  # ──────────────── FRONTEND ────────────────
+  frontend:
+    build:
+      context: apps/frontend
+      dockerfile: Dockerfile
+    container_name: frontend
     ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
 
 volumes:
+  auth_db_data:
   job_db_data:
   candidate_db_data:
   rag_db_data:
-  auth_db_data:

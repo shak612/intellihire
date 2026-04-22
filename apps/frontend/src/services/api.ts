@@ -1,9 +1,26 @@
 import axios from 'axios';
-import { Candidate, Job } from '../types';
+import { AuthResponse, Candidate, Job } from '../types';
 
-const ragApi = axios.create({ baseURL: 'http://localhost:3003' });
-const candidateApi = axios.create({ baseURL: 'http://localhost:3002' });
+const authApi = axios.create({ baseURL: 'http://localhost:3000' });
 const jobApi = axios.create({ baseURL: 'http://localhost:3001' });
+const candidateApi = axios.create({ baseURL: 'http://localhost:3002' });
+const ragApi = axios.create({ baseURL: 'http://localhost:3003' });
+
+
+export const login = async (email: string, password: string): Promise<AuthResponse> => {
+  const { data } = await authApi.post('/auth/login', { email, password });
+  return data;
+};
+
+export const register = async (
+  email: string,
+  password: string,
+  name: string,
+  role: 'recruiter' | 'candidate',
+): Promise<AuthResponse> => {
+  const { data } = await authApi.post('/auth/register', { email, password, name, role });
+  return data;
+};
 
 export const searchCandidates = async (jobDescription: string): Promise<Candidate[]> => {
   const { data } = await ragApi.post('/search', { jobDescription });
@@ -36,4 +53,15 @@ export const createJob = async (job: Omit<Job, 'id' | 'createdAt' | 'status'>): 
 
 export const deleteJob = async (id: string, recruiterId: string): Promise<void> => {
   await jobApi.delete(`/jobs/${id}?recruiterId=${recruiterId}`);
+};
+
+export const fetchAnalytics = async () => {
+  const [jobsRes, resumesRes] = await Promise.all([
+    jobApi.get('/jobs'),
+    ragApi.get('/analytics'),
+  ]);
+  return {
+    jobs: jobsRes.data,
+    analytics: resumesRes.data,
+  };
 };

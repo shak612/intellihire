@@ -16,6 +16,11 @@ export class AppController {
     await this.appService.processResume(message);
   }
 
+  @EventPattern('job.created')
+  async handleJobCreated(@Payload() message: any) {
+    await this.appService.ingestJob(message.jobId, message.description, message.title);
+  }
+
   // Recruiter: find best candidates for a job
   @Post('search')
   async searchCandidates(@Body() body: { jobDescription: string }) {
@@ -32,5 +37,17 @@ export class AppController {
       body.jobId,
       body.resume,
     );
+  }
+
+  @Post('ingest-job')
+  async ingestJob(@Body() body: { jobId: string; description: string }) {
+    await this.appService.ingestJob(body.jobId, body.description);
+    return { success: true };
+  }
+
+  // Analytics
+  @Get('analytics')
+  async getAnalytics() {
+    return this.appService.getAnalytics();
   }
 }

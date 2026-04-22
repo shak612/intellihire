@@ -132,35 +132,35 @@ ${resumeContext}`;
     return response.response.trim() || originalQuery;
   }
 
-  async answerCandidateQuestion(
-    question: string,
-    jobId: string,
-    candidateResume: string,
-  ): Promise<string> {
-    const jdChunks = await this.ingestionService.searchSimilarResumes(
-      question,
-      3,
-    );
-    const jdContext = jdChunks.map((c) => c.chunkText).join('\n\n');
+    async answerCandidateQuestion(
+        question: string,
+        jobId: string,
+        candidateResume: string,
+        ): Promise<string> {
+        // Now correctly uses jobId to fetch JD context
+        const jdChunks = await this.ingestionService.searchJobContext(jobId, question);
+        const jdContext = jdChunks.length > 0
+            ? jdChunks.map((c) => c.chunkText).join('\n\n')
+            : 'No job description found for this role.';
 
-    const response = await this.ollama.generate({
-      model: 'llama3.2',
-      prompt: `You are a helpful assistant helping a candidate understand if they are a good fit for a job.
-Be honest, specific and encouraging. Base your answer only on the provided context.
+        const response = await this.ollama.generate({
+            model: 'llama3.2',
+            prompt: `You are a helpful assistant helping a candidate understand if they are a good fit for a job.
+        Be honest, specific and encouraging. Base your answer only on the provided context.
 
-Job Context:
-${jdContext}
+        Job Context:
+        ${jdContext}
 
-Candidate Resume:
-${candidateResume}
+        Candidate Resume:
+        ${candidateResume}
 
-Question: ${question}
+        Question: ${question}
 
-Answer:`,
-      stream: false,
-      options: { temperature: 0.5 },
-    });
+        Answer:`,
+            stream: false,
+            options: { temperature: 0.5 },
+        });
 
-    return response.response.trim();
-  }
+        return response.response.trim();
+    }
 }

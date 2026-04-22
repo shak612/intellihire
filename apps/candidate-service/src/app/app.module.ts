@@ -7,20 +7,20 @@ import { AppService } from './app.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: 'localhost',
-        port: config.get<number>('CANDIDATE_DB_PORT'),
-        username: config.get('POSTGRES_USER'),
-        password: config.get('POSTGRES_PASSWORD'),
-        database: config.get('CANDIDATE_DB_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
-      }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '../../.env',
+      ignoreEnvFile: process.env.NODE_ENV === 'production',
+    }),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.CANDIDATE_DB_HOST || 'localhost',
+      port: parseInt(process.env.CANDIDATE_DB_PORT || '5434'),
+      username: process.env.POSTGRES_USER || 'intellihire',
+      password: process.env.POSTGRES_PASSWORD || 'intellihire123',
+      database: process.env.CANDIDATE_DB_NAME || 'candidate_db',
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: true,
     }),
     ClientsModule.register([
       {
@@ -29,7 +29,7 @@ import { AppService } from './app.service';
         options: {
           client: {
             clientId: 'candidate-service',
-            brokers: ['localhost:9092'],
+            brokers: [(process.env.KAFKA_BROKER || 'localhost:9092')],
           },
           consumer: { groupId: 'candidate-consumer' },
         },

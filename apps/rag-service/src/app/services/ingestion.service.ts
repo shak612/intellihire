@@ -19,7 +19,7 @@ export class IngestionService implements OnModuleInit {
     // Ensure pgvector extension and correct column type on boot
     await this.dataSource.query('CREATE EXTENSION IF NOT EXISTS vector');
     await this.dataSource.query(`
-      ALTER TABLE resume_embeddings
+      ALTER TABLE job_embeddings
       ADD COLUMN IF NOT EXISTS embedding vector(768)
     `);
     this.logger.log('resume_embeddings table ready with vector column');
@@ -68,5 +68,43 @@ export class IngestionService implements OnModuleInit {
     );
 
     return results;
+  }
+
+  async ingestJob(jobId: string, jobDescription: string, jobTitle?: string): Promise<void> {
+    this.logger.log(`Ingesting job: ${jobId} — ${jobTitle}`);
+
+    await this.dataSource.query(
+      `DELETE FROM job_embeddings WHERE "jobId" = $1`,
+      [jobId],
+    );
+
+    const chunks = this.embeddingService.chunkText(jobDescription);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const vector = await this.embeddingService.generateEmbedding(chunks[i]);
+      await this.dataSource.query(
+        `INSERT INTO job_embeddings 
+        ("jobId", "chunkText", "chunkIndex", "jobTitle", embedding, "createdAt")
+        VALUES ($1, $2, $3, $4, $5::vector, NOW())`,
+        [jobId, chunks[i], i, jobTitle || '', JSON.stringify(vector)],
+      );
+    }
+  }
+
+  async searchJobContext(
+    jobId: string,
+    question: string,
+    topK = 3,
+  ): Promise<Array<{ chunkText: string; similarity: number }>> {
+    const queryVector = await this.embeddingService.generateEmbedding(question);
+
+    return this.dataSource.query(
+      `SELECT "chunkText", 1 - (embedding <=> $1::vector) as similarity
+      FROM job_embeddings
+      WHERE "jobId" = $2 AND embedding IS NOT NULL
+      ORDER BY embedding <=> $1::vector
+      LIMIT $3`,
+      [JSON.stringify(queryVector), jobId, topK],
+    );
   }
 }

@@ -16,13 +16,19 @@ export class IngestionService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Ensure pgvector extension and correct column type on boot
     await this.dataSource.query('CREATE EXTENSION IF NOT EXISTS vector');
+
+    await this.dataSource.query(`
+      ALTER TABLE resume_embeddings
+      ADD COLUMN IF NOT EXISTS embedding vector(768)
+    `);
+
     await this.dataSource.query(`
       ALTER TABLE job_embeddings
       ADD COLUMN IF NOT EXISTS embedding vector(768)
     `);
-    this.logger.log('resume_embeddings table ready with vector column');
+
+    this.logger.log('Vector columns ready');
   }
 
   async ingestResume(candidateId: string, resumeText: string): Promise<void> {
